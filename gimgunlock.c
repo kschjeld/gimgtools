@@ -211,6 +211,19 @@ void apply_patch (FILE *fp, struct patch_struct *patch_list)
 	}
 }
 
+int fcopy(FILE *fp1, FILE *fp2)
+{
+    char            buffer[32*1024];
+    size_t          n;
+
+    while ((n = fread(buffer, sizeof(char), sizeof(buffer), fp1)) > 0)
+    {
+        if (fwrite(buffer, sizeof(char), n, fp2) != n)
+            return -1;
+    }
+    return 0;
+}
+
 int main (int argc, char *argv[])
 {
 	FILE *fp;
@@ -227,25 +240,35 @@ int main (int argc, char *argv[])
 		return 1;
 	}
 
-	printf("Analyzing file.\n");
+	printf("Analyzing file..\n");
 	fp = fopen(argv[1], "rb");
 	if (fp == NULL) {
-		printf("can't open %s\n", argv[1]);
+		printf("ERROR: can't open input file %s\n", argv[1]);
 		return 1;
 	}
 	patch = create_patch(fp);
-	fclose(fp);
-	if (patch == NULL)
-		return 1;
-
+	
 	printf("Writing to file:%s\n", argv[2]);
-	fp = fopen(argv[2], "rb+");
-	if (fp == NULL) {
-		printf("can't open %s for writing\n", argv[2]);
+	FILE *fpout = fopen(argv[2], "w");
+	if (fpout == NULL) {
+		printf("ERROR: can't open %s for writing\n", argv[2]);
 		return 1;
 	}
-	apply_patch(fp, patch);
-	fclose(fp);
+	
+	rewind(fp);
+	if( fcopy(fp, fpout)) {
+		printf("ERROR: can't copy input file to output file\n");
+		return 1;
+	}
+	
+	if( patch != NULL ) {
+		apply_patch(fpout, patch);
+	} else {
+		printf("No need to patch file. Output file will be equal to input file..\n");
+	}
+	
+	fclose(fp);	
+	fclose(fpout);
 
 	return 0;
 }
